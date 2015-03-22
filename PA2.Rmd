@@ -1,0 +1,189 @@
+---
+title: "Storm Impact Analysis in the US"
+output: 
+  html_document:
+    highlight: pygments
+    keep_md: true
+    toc: true
+    theme: cerulean
+---
+
+# Synopsis
+
+This reports looks at the impact of storm events across the United States 
+between the year 1950 and Novermber 2011. In particular, it considers the cost 
+of these storm events both to population health and the economy. The analysis 
+will show that the top 3 events that have been the most harmful to population 
+health are _TORNADO_, _EXCESSIVE HEAT_ and _FLASH FLOOD_ taking into
+account the number of fatalities and injuries caused by each event type.
+Also, the top 3 events that have had the greatest economic consequences are 
+_FLOOD_, _HURRICANE/TYPHOON_ and _TORNADO_ considering the cost (in dollars) of
+damages to properties and crops.
+
+
+# Data Processing
+So as to ascertain the most harmful events with respect to population health, 
+this report considered the following variables
+
+-  the type of event (indicated in the EVTYPE variable)
+-  number of deaths caused by an event (indicated in FATALITIES variable)
+-  number of injuries caused by an event (indicated in INJURIES variable)
+
+So as to ascertain the events that resulted in the gravest economic impact, the
+following report took into account
+
+- the type of event indicated in the EVTYPE variable
+- dollar estimate of damage to properties indicated in the "PROPDMG" variable
+- magnitude of damage estimate to properties indicated in the "PROPDMGEXP" variable
+- dollar estimate of damage to properties indicated in the "CROPDMG" variable
+- magnitude of damage estimate to properties indicated in the "CROPDMGEXP" variable
+
+### Tidy up data
+
+The variables mentioned above are extracted and cleaned up to allow further 
+analysis required to answer the questions this report aims to address.
+
+```{r, cache = TRUE}
+storm <- read.csv('~/work/R/coursera/repdata-012/PeerAssessment2/StormData.csv')
+
+# Extract relevant variables needed for computation
+extract <- storm[,c("EVTYPE", "FATALITIES", "INJURIES", "PROPDMG", "PROPDMGEXP", "CROPDMG", "CROPDMGEXP")]
+
+# Tidy up PROPDMGEXP and CROPDMGEXP variables to take care of the various 
+# representation of magnitude of damage estimate.
+# (""  "-" "?" "+" "0" "1" "2" "3" "4" "5" "6" "7" "8" "B" "h" "H" "K" "m" "M")
+tidyExpData <- function(x) {
+    x <- as.character(x)
+    x[x == ''] <- 0
+    x[(x == 'h') | (x == 'H')] <- 2
+    x[(x == 'k') | (x == 'K')] <- 3
+    x[(x == 'm') | (x == 'M')] <- 6
+    x[(x == 'b') | (x == 'B')] <- 9
+    x[(x == '-') | (x == '+') | (x == '?')] <- 1
+    x 
+}
+
+extract$PROPDMGExpValue <- tidyExpData(extract$PROPDMGEXP)
+extract$CROPDMGExpValue <- tidyExpData(extract$CROPDMGEXP)
+```
+
+
+
+-   Assuming most harmful events with respect to population health are events 
+    that caused fatalities or injuries, let us compute the total number of 
+    fatalities and/or injuries per event type.
+    
+```{r, cache = TRUE}
+library(plyr)
+# Compute total number of fatalities and injuries per event type
+evHarmAgg <- ddply(extract, "EVTYPE", summarise, 
+                   total.fatalities = sum(FATALITIES), 
+                   total.injuries = sum(INJURIES))
+
+# Get a subset of events that caused fatalities or injuries
+evHarm <- evHarmAgg[evHarmAgg$total.fatalities > 0 | evHarmAgg$total.injuries > 0, ]
+evHarm <- evHarm[order(evHarm$total.fatalities, evHarm$total.injuries, decreasing=T), ]
+```
+
+
+-   Taking into account the PROPDMG, PROPDMGEXP, CROPDMG and CROPDMGEXP variables,
+    let us compute the cost (in dollars) of damages to properties and crops per 
+    event type
+
+```{r, cache = TRUE}
+library(plyr)
+# Compute cost of damages to properties
+extract$PROPDMGCOST <- extract$PROPDMG * 10^as.numeric(extract$PROPDMGExpValue)
+
+# Compute cost of damages to crops
+extract$CROPDMGCOST <- extract$CROPDMG * 10^as.numeric(extract$CROPDMGExpValue)
+
+# Compute total cost of damages to properties and crops per event type
+evCostAgg <- ddply(extract, "EVTYPE", summarise,
+                   total.propdmgcost = sum(PROPDMGCOST),
+                   total.cropdmgcost = sum(CROPDMGCOST))
+
+# Get a subset of events that caused damages to properties and/or crops
+evCost <- evCostAgg[evCostAgg$total.propdmgcost > 0 | evCostAgg$total.cropdmgcost > 0, ]
+evCost <- evCost[order(evCost$total.propdmgcost, evCost$total.cropdmgcost, decreasing=T), ]
+```
+
+# Results
+## Most harmful events with respect to population health
+
+This section answers the question:
+
+> Across the United States, which types of events (as indicated in the EVTYPE 
+  variable) are most harmful with respect to population health?
+    
+```{r}
+# Top 20 most harmful events with respect to population health
+evHarm20 <- head(evHarm, 20)
+evHarm20 
+
+# Number of most harmful events
+length(evHarm$EVTYPE)
+
+# Total number of event types
+length(evHarmAgg$EVTYPE)
+```
+
+From the results of analysis carried out, it can be observed that:
+
+-   out of the `r length(evHarmAgg$EVTYPE)` event types in the data set
+    `r length(evHarm$EVTYPE)` were the most harmful to  human population health
+    in the US.
+-   The top 5 most harmful events includes 
+    + `r head(evHarm$EVTYPE, 5)`
+    
+A complete list of the most harmful events with respect to population health are
+can be seen in the Appendix section below.
+
+**Plot of the 20 most harmful events**
+
+```{r}
+library(reshape2)
+evHarm20Melt <- melt(evHarm20, id=c('EVTYPE'), 
+                     measure.vars=c('total.fatalities', 'total.injuries'))
+
+library(lattice)
+barchart(EVTYPE ~ value | variable, data = evHarm20Melt)
+```
+
+
+## Economic consequences
+
+This section addresses the question:
+
+> Across the United States, which types of events have the greatest economic 
+  consequences?
+
+
+```{r}
+# Top 20 most harmful events
+evCost20 <- head(evCost, 20)
+evCost20
+```
+
+From the results computed above, which took into account the cost of damage to
+both properties and crops, it can be seen that the top 5 events that have the
+greatest economic consequences includes 
+
+- `r head(evCost20$EVTYPE, 5)`.
+
+**Plot of the events that caused the greatest economic consequence**
+
+```{r}
+library(reshape2)
+evCost20Melt <- melt(evCost20, id=c('EVTYPE'), 
+                     measure.vars=c('total.propdmgcost', 'total.cropdmgcost'))
+barchart(EVTYPE ~ value | variable, data = evCost20Melt)
+```
+
+
+# Appendix
+
+```{r}
+# List of most harmful events
+as.character(evHarm$EVTYPE)
+```
