@@ -15,7 +15,8 @@ between the year 1950 and Novermber 2011. In particular, it considers the cost
 of these storm events both to population health and the economy. The analysis 
 will show that the top 3 events that have been the most harmful to population 
 health are _TORNADO_, _EXCESSIVE HEAT_ and _FLASH FLOOD_ taking into
-account the number of fatalities and injuries caused by each event type.
+account the number of fatalities and injuries caused by each event type. 
+Tornado caused the most harm with 5633 fatalities and 91346 injuries.
 Also, the top 3 events that have had the greatest economic consequences are 
 _FLOOD_, _HURRICANE/TYPHOON_ and _TORNADO_ considering the cost (in dollars) of
 damages to properties and crops.
@@ -147,7 +148,9 @@ evHarm20Melt <- melt(evHarm20, id=c('EVTYPE'),
                      measure.vars=c('total.fatalities', 'total.injuries'))
 
 library(lattice)
-barchart(EVTYPE ~ value | variable, data = evHarm20Melt)
+barchart(EVTYPE ~ value | variable, data = evHarm20Melt,
+         xlab = 'Number of fatalities/injuries',
+         ylab = 'Type of events')
 ```
 
 
@@ -177,7 +180,9 @@ greatest economic consequences includes
 library(reshape2)
 evCost20Melt <- melt(evCost20, id=c('EVTYPE'), 
                      measure.vars=c('total.propdmgcost', 'total.cropdmgcost'))
-barchart(EVTYPE ~ value | variable, data = evCost20Melt)
+barchart(EVTYPE ~ value | variable, data = evCost20Melt,
+         xlab = 'Cost of damage to properties and crops',
+         ylab = 'Type of events')
 ```
 
 
